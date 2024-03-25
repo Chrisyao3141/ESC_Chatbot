@@ -39,16 +39,18 @@ for dialog in dataset["train"]:
         # print(line)
 # exit()
 tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
-sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>', '<eos>']}
+sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
 tokenizer.add_special_tokens(sepcial_tokens_dict)
 tokenizer.add_special_tokens({'pad_token': '<pad>'})
+tokenizer.add_special_tokens({'eos_token': '<eos>'})
+print("length of tokenizer is {}".format(len(tokenizer)))
 # print(processed_data.items())
 # exit()
 train_data, test_data = train_test_split(processed_data,test_size=.2)
 
 # print(tokenizer(processed_data)[1].tokens)
-tokenized_train_data = tokenizer(train_data, padding=True)
-tokenized_test_data = tokenizer(test_data, padding=True)
+tokenized_train_data = tokenizer(train_data, padding=True, truncation=True)
+tokenized_test_data = tokenizer(test_data, padding=True, truncation=True)
 # print(len(tokenized_data[0]))
 with open('ESC_train.pkl', 'wb') as f:
     pickle.dump(tokenized_train_data, f)

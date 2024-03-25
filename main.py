@@ -9,6 +9,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, AdamW
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 import gc
+import time
 
 
 parser = argparse.ArgumentParser()
@@ -47,7 +48,6 @@ device = torch.device(f"cuda:{args.device}" if args.device >=0 else "cpu")
 
 
 def train(model, optimizer):
-    print("Am training hehehe")
     global_training_steps = 0
     eval_loss_list = []
     epoch_count = 0
@@ -59,23 +59,28 @@ def train(model, optimizer):
     train_dataset = dataset.ESCDataset(train_data)
     dataloader = DataLoader(train_dataset, shuffle = True, batch_size = batch_size)
     print("Beginning training")
+    start = time.time()
     for epoch in range(num_epochs):
         epoch_steps = 0
         for batch in dataloader:
             model.train()
             optimizer.zero_grad()
-            input_ids = batch['inpuut_ids'].to(device)
+            input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
+            # print(len(input_ids[0]))
+            # print((attention_mask))
             outputs = model(input_ids, attention_mask=attention_mask)
             loss = outputs[0]
-            loss.backward()
+            loss.mean().backward()
             optimizer.step()
             global_training_steps += 1
             epoch_steps +=1
 
             # basic progress logging
             if (global_training_steps % 1000 == 0):
-                print("Epoch {}, Epoch steps {}, Global steps {}".format(epoch_count, epoch_steps, global_training_steps))
+                current = time.time()
+                time_taken = current - start
+                print("Epoch {}, Epoch steps {}, Global steps {}, Time taken{}".format(epoch_count, epoch_steps, global_training_steps, time_taken))
             #perform evaluation every set amount of training steps
             if (global_training_steps % 5000 == 0):
                 eval_loss, perplexity = evaluate(model, optimizer)
@@ -129,6 +134,7 @@ def evaluate(model, optimizer):
 if __name__ == "__main__":
     if (train):
         model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).train().to(device)
+        model.resize_token_embeddings(50261)
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5)
         results = train(model, optimizer)
