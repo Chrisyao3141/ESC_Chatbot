@@ -64,14 +64,16 @@ def train(model, optimizer):
         epoch_steps = 0
         for batch in dataloader:
             model.train()
+            train_loss = 0.0
             optimizer.zero_grad()
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             # print(len(input_ids[0]))
             # print((attention_mask))
-            outputs = model(input_ids, attention_mask=attention_mask)
+            outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
             loss = outputs[0]
-            loss.mean().backward()
+            train_loss += loss.mean()
+            loss.backward()
             optimizer.step()
             global_training_steps += 1
             epoch_steps +=1
@@ -79,8 +81,9 @@ def train(model, optimizer):
             # basic progress logging
             if (global_training_steps % 1000 == 0):
                 current = time.time()
-                time_taken = current - start
-                print("Epoch {}, Epoch steps {}, Global steps {}, Time taken{}".format(epoch_count, epoch_steps, global_training_steps, time_taken))
+                print(loss)
+                time_taken = (current - start) % 1
+                print("Epoch: {}, Epoch steps: {}, Global steps: {}, Time taken: {} seconds, Loss: {}".format(epoch_count, epoch_steps, global_training_steps, time_taken, train_loss))
             #perform evaluation every set amount of training steps
             if (global_training_steps % 5000 == 0):
                 eval_loss, perplexity = evaluate(model, optimizer)
@@ -89,17 +92,17 @@ def train(model, optimizer):
                 # save the checkpoint model if the performance has improved
                 if (len(eval_loss_list) > 1):
                     last_index = len(eval_loss_list) -1
-                    if (eval_loss_list[-1].mean().item() < eval_loss_list[-2].mean().item()):
+                    if (eval_loss_list[-1] < eval_loss_list[-2]):
                         output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
                         model.save_pretrained(output_directory)
                         print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
         #at the end of each epoch, check if there has been improvement over the last 2 epochs to determine whether further training is needed
         ## could be done better         
         epoch_loss_list.append(eval_loss_list[-1])
-        if (len(epoch_loss_list) > 2):
-            if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
-                print("No improvement in model over the last 2 epochs, concluding training")
-                return eval_loss_list
+        # if (len(epoch_loss_list) > 2):
+        #     if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
+        #         print("No improvement in model over the last 2 epochs, concluding training")
+        #         return eval_loss_list
         epoch_count +=1
     print("Finished training!")
 
@@ -120,10 +123,10 @@ def evaluate(model, optimizer):
     for batch in dataloader:
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
-        with torch.no_grad:
-            outputs = model(input_ids, attention_mask=attention_mask)
-            loss = outputs[0]
-            eval_loss += loss.mean().item()
+        outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
+        loss = outputs[0]
+        eval_loss += loss.mean().item()
+        # print(eval_loss)
         eval_steps += 1
     print("Finished Evaluation")
     eval_loss = eval_loss/eval_steps
