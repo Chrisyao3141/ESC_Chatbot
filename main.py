@@ -3,6 +3,7 @@ import json
 import torch
 import argparse
 import numpy as np
+import string
 import pickle
 import dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM, AdamW
@@ -16,20 +17,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, default="fine tune")
 parser.add_argument("--train", type=bool, default=False)
 parser.add_argument("--eval", type=bool, default=False)
+parser.add_argument("--infer", type=bool, default=False)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--model_path", type=str, default="/data/sam/Chris/gpt-2/gpt2")
 parser.add_argument("--num_epochs", type=int, default=4)
 parser.add_argument("--device", type=int, default=-1)
 parser.add_argument("--output_directory", type=str, default= "/data/sam/Chris/gpt-2")
+parser.add_argument("--checkpoint_load", type=bool, default=False)
 args = parser.parse_args()
 
 mode =args.mode 
 batch_size = args.batch_size
 train = args.train
 eval = args.eval
+infer = args.infer
 num_epochs = args.num_epochs
 model_path = args.model_path #"/data/sam/Chris/gpt-2/gpt2"
 output_dir = args.output_directory
+checkpoint_load = args.checkpoint_load
 data_directory = "./ESC_tokenized.pkl"
 train_data_directory = "./ESC_train.pkl"
 test_data_directory = "./ESC_test.pkl"
@@ -49,6 +54,10 @@ device = torch.device(f"cuda:{args.device}" if args.device >=0 else "cpu")
 
 def train(model, optimizer):
     global_training_steps = 0
+    if(checkpoint_load == True):
+        checkpoint = model_path.split("-")
+        checkpoint = int(checkpoint[-1])
+        global_training_steps+= checkpoint
     eval_loss_list = []
     epoch_count = 0
     epoch_loss_list = []
@@ -81,8 +90,8 @@ def train(model, optimizer):
             # basic progress logging
             if (global_training_steps % 1000 == 0):
                 current = time.time()
-                print(loss)
-                time_taken = (current - start) % 1
+                # print(loss)
+                time_taken = (current - start)
                 print("Epoch: {}, Epoch steps: {}, Global steps: {}, Time taken: {} seconds, Loss: {}".format(epoch_count, epoch_steps, global_training_steps, time_taken, train_loss))
             #perform evaluation every set amount of training steps
             if (global_training_steps % 5000 == 0):
@@ -92,17 +101,17 @@ def train(model, optimizer):
                 # save the checkpoint model if the performance has improved
                 if (len(eval_loss_list) > 1):
                     last_index = len(eval_loss_list) -1
-                    if (eval_loss_list[-1] < eval_loss_list[-2]):
+                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 1):
                         output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
                         model.save_pretrained(output_directory)
                         print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
         #at the end of each epoch, check if there has been improvement over the last 2 epochs to determine whether further training is needed
         ## could be done better         
         epoch_loss_list.append(eval_loss_list[-1])
-        # if (len(epoch_loss_list) > 2):
-        #     if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
-        #         print("No improvement in model over the last 2 epochs, concluding training")
-        #         return eval_loss_list
+        if (len(epoch_loss_list) > 2):
+            if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
+                print("No improvement in model over the last 2 epochs, concluding training")
+                return eval_loss_list
         epoch_count +=1
     print("Finished training!")
 
@@ -133,15 +142,27 @@ def evaluate(model, optimizer):
     perplexity = torch.exp(torch.tensor(eval_loss))
     return eval_loss, perplexity
 
+# def inference(text_string, model, tokenizer):
+
 
 if __name__ == "__main__":
+    model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).to(device)
+    tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
+    sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
+    tokenizer.add_special_tokens(sepcial_tokens_dict)
+    tokenizer.add_special_tokens({'pad_token': '<pad>'})
+    tokenizer.add_special_tokens({'eos_token': '<eos>'}) 
+    model.resize_token_embeddings(len(tokenizer))
+
+
     if (train):
-        model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).train().to(device)
-        model.resize_token_embeddings(50261)
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5)
         results = train(model, optimizer)
         del model
+    # if (infer): 
+    #     text_string = "test"
+    #     inference(text_string, model, tokenizer)
     gc.collect()
     torch.cuda.empty_cache()
 
