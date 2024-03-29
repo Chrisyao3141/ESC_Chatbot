@@ -76,6 +76,8 @@ def train(model, optimizer):
             train_loss = 0.0
             optimizer.zero_grad()
             input_ids = batch['input_ids'].to(device)
+            # if (global_training_steps % 1000 == 0):
+            #     print(input_ids)
             attention_mask = batch['attention_mask'].to(device)
             # print(len(input_ids[0]))
             # print((attention_mask))
@@ -101,7 +103,7 @@ def train(model, optimizer):
                 # save the checkpoint model if the performance has improved
                 if (len(eval_loss_list) > 1):
                     last_index = len(eval_loss_list) -1
-                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 1):
+                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 5):
                         output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
                         model.save_pretrained(output_directory)
                         print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
@@ -150,8 +152,6 @@ if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
     sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
     tokenizer.add_special_tokens(sepcial_tokens_dict)
-    tokenizer.add_special_tokens({'pad_token': '<pad>'})
-    tokenizer.add_special_tokens({'eos_token': '<eos>'}) 
     model.resize_token_embeddings(len(tokenizer))
 
 

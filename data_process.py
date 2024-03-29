@@ -16,41 +16,56 @@ supporter_token = "<sup>"
 #     for turn in dialog:
 #         print(turn["speaker"] + ": " + turn["content"])
 #     break
-processed_data = []
+count= 0
+train_split = []
+test_split = []
+for i in range(0, 1040):
+    train_split.append(dataset['train'][i])
+for i in range(1040, 1300):
+    test_split.append(dataset['train'][i])
+# train_split, test_split = train_test_split(dataset["train"],test_size=.2)
+# print(train_split)
+# print(test_split)
 #print(dataset)
-for dialog in dataset["train"]:
-    # print(dialog)
-    dialog = dialog["dialog"]
-    line = ""
-    speaker = ""
-    last_speaker = ""
-    for turn in dialog:
-        speaker = turn['speaker']
-        if(not(speaker == last_speaker)):
-            if (not(last_speaker == "")):
-                line += "<eos>"
-                processed_data.append(line)
-            if speaker == "seeker":
-                line += seeker_token
-            else: 
-                line += supporter_token   
-        line += turn["content"].replace("\n", " ")
-        last_speaker = speaker
-    processed_data.append(line)
+def process(dataset):
+    processed_data = []
+    for dialog in dataset:
+        # print(dialog)
+        dialog = dialog["dialog"]
+        line = ""
+        speaker = ""
+        last_speaker = ""
+        for turn in dialog:
+            speaker = turn['speaker']
+            if(not(speaker == last_speaker)):
+                if (not(last_speaker == "")):
+                    line += " " +tokenizer.eos_token + " "
+                    # if(speaker == "supporter"): ### if we want it to learn only 1 role
+                    processed_data.append(line)
+                if speaker == "seeker":
+                    line += seeker_token + " "
+                else: 
+                    line += supporter_token  +" " 
+            line += turn["content"].replace("\n", " ").lower()
+            last_speaker = speaker
+        processed_data.append(line)
+    return processed_data
     # break
     # for line in processed_data:
         # print(line)
 # exit()
 tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
+train_data = process(train_split)
+test_data = process(test_split)
 sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
 tokenizer.add_special_tokens(sepcial_tokens_dict)
-tokenizer.add_special_tokens({'pad_token': '<pad>'})
-tokenizer.add_special_tokens({'eos_token': '<eos>'})
+# print(tokenizer("<skr>Hello").tokens)
+# print(tokenizer("<skr> Hello").tokens)
+# exit()
 print("length of tokenizer is {}".format(len(tokenizer)))
 # print(processed_data.items())
-# exit()
-train_data, test_data = train_test_split(processed_data,test_size=.2)
-
+# print(train_data)
+# print(test_data)
 # print(tokenizer(processed_data)[1].tokens)
 tokenized_train_data = tokenizer(train_data, truncation=True)
 tokenized_test_data = tokenizer(test_data, truncation=True)
@@ -70,6 +85,11 @@ with open('ESC_test.pkl', 'wb') as f:
 # tokenized_data = dataset.map(lambda dataset: tokenizer(processed_data))
 # tokenized_data.save_to_disk('.')
 
-# f = open("./processed_data.txt", "w")
-# for line in processed_data:
-#     f.write(line + "\n")
+with open("./processed_train_data.txt", "w") as f:
+    for line in train_data:
+        f.write(line + "\n")
+with open("./processed_test_data.txt", "w") as f:
+    for line in test_data:
+        f.write(line + "\n")
+
+
