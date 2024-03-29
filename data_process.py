@@ -22,17 +22,20 @@ for dialog in dataset["train"]:
     # print(dialog)
     dialog = dialog["dialog"]
     line = ""
-    speaker = "seeker"
+    speaker = ""
+    last_speaker = ""
     for turn in dialog:
-        if(speaker == "supporter" and turn["speaker"]):
-            processed_data.append(line)
-            # print(line) 
-        speaker = turn["speaker"]
-        if speaker == "seeker":
-            line += seeker_token
-        else: 
-            line += supporter_token
-        line += turn["content"].replace("\n", "")+"<eos>"
+        speaker = turn['speaker']
+        if(not(speaker == last_speaker)):
+            if (not(last_speaker == "")):
+                line += "<eos>"
+                processed_data.append(line)
+            if speaker == "seeker":
+                line += seeker_token
+            else: 
+                line += supporter_token   
+        line += turn["content"].replace("\n", " ")
+        last_speaker = speaker
     processed_data.append(line)
     # break
     # for line in processed_data:
@@ -49,18 +52,24 @@ print("length of tokenizer is {}".format(len(tokenizer)))
 train_data, test_data = train_test_split(processed_data,test_size=.2)
 
 # print(tokenizer(processed_data)[1].tokens)
-tokenized_train_data = tokenizer(train_data, padding=True, truncation=True)
-tokenized_test_data = tokenizer(test_data, padding=True, truncation=True)
+tokenized_train_data = tokenizer(train_data, truncation=True)
+tokenized_test_data = tokenizer(test_data, truncation=True)
 # print(len(tokenized_data[0]))
+
+
+
 with open('ESC_train.pkl', 'wb') as f:
     pickle.dump(tokenized_train_data, f)
 with open('ESC_test.pkl', 'wb') as f:
     pickle.dump(tokenized_test_data, f)
+
+
 # with open('ESC_tokenized.pkl', 'rb') as f:
 #     loaded_data = pickle.load(f)
 #     print(loaded_data[0].tokens)
 # tokenized_data = dataset.map(lambda dataset: tokenizer(processed_data))
 # tokenized_data.save_to_disk('.')
+
 # f = open("./processed_data.txt", "w")
 # for line in processed_data:
-    # f.write(line + "\n")
+#     f.write(line + "\n")
