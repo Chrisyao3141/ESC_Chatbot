@@ -103,17 +103,17 @@ def train(model, optimizer):
                 # save the checkpoint model if the performance has improved
                 if (len(eval_loss_list) > 1):
                     last_index = len(eval_loss_list) -1
-                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 5):
+                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 2):
                         output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
                         model.save_pretrained(output_directory)
                         print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
         #at the end of each epoch, check if there has been improvement over the last 2 epochs to determine whether further training is needed
         ## could be done better         
         epoch_loss_list.append(eval_loss_list[-1])
-        if (len(epoch_loss_list) > 2):
-            if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
-                print("No improvement in model over the last 2 epochs, concluding training")
-                return eval_loss_list
+        # if (len(epoch_loss_list) > 2):
+        #     if (not(epoch_loss_list[-1] > epoch_loss_list[-2] and epoch_loss_list[-1] > epoch_loss_list[-3])):
+        #         print("No improvement in model over the last 2 epochs, concluding training")
+        #         return eval_loss_list
         epoch_count +=1
     print("Finished training!")
 
@@ -144,7 +144,14 @@ def evaluate(model, optimizer):
     perplexity = torch.exp(torch.tensor(eval_loss))
     return eval_loss, perplexity
 
-# def inference(text_string, model, tokenizer):
+def inference(text_string, model, tokenizer):  
+    input_ids = tokenizer(text_string, return_tensors='pt').to(device)
+    output = model.generate(**input_ids,
+            pad_token_id=tokenizer.eos_token_id)
+    print(output)
+    pred = tokenizer.decode(output[0][1], skip_special_tokens=True)
+    print(pred)
+    print("Finished conversation with gpt")
 
 
 if __name__ == "__main__":
@@ -155,14 +162,15 @@ if __name__ == "__main__":
     model.resize_token_embeddings(len(tokenizer))
 
 
-    if (train):
+    if (train is True):
         print("Model Loaded")
-        optimizer = AdamW(model.parameters(), lr=5e-5)
+        optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
         del model
-    # if (infer): 
-    #     text_string = "test"
-    #     inference(text_string, model, tokenizer)
+    if (infer is True): 
+        print("Please enter text to converse with the model")
+        text_string = input()
+        inference(text_string, model, tokenizer)
     gc.collect()
     torch.cuda.empty_cache()
 
