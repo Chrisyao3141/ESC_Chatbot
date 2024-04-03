@@ -11,7 +11,9 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 import gc
 import time
+from transformers.utils import logging
 
+logging.set_verbosity_error()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, default="fine tune")
@@ -146,11 +148,17 @@ def evaluate(model, optimizer):
 
 def inference(text_string, model, tokenizer):  
     input_ids = tokenizer(text_string, return_tensors='pt').to(device)
-    output = model.generate(**input_ids,
+    # print(input_ids)
+    output = model.generate(**input_ids, max_new_tokens=500,
+            top_p=0.9,
+            temperature=0.6,
+            do_sample=True,
+            num_return_sequences=1,
+            no_repeat_ngram_size=2,
             pad_token_id=tokenizer.eos_token_id)
-    print(output)
-    pred = tokenizer.decode(output[0][1], skip_special_tokens=True)
-    print(pred)
+    # print(output)
+    pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:], skip_special_tokens=True)
+    print("Gpt-2's Response: {}".format(pred))
     print("Finished conversation with gpt")
 
 
@@ -162,7 +170,7 @@ if __name__ == "__main__":
     model.resize_token_embeddings(len(tokenizer))
 
 
-    if (train is True):
+    if (train is True): 
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
@@ -170,6 +178,7 @@ if __name__ == "__main__":
     if (infer is True): 
         print("Please enter text to converse with the model")
         text_string = input()
+        text_string = "<skr>" + text_string + "<|endoftext|>"
         inference(text_string, model, tokenizer)
     gc.collect()
     torch.cuda.empty_cache()
