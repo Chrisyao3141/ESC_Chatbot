@@ -149,7 +149,7 @@ def evaluate(model, optimizer):
 def inference(text_string, model, tokenizer):  
     input_ids = tokenizer(text_string, return_tensors='pt').to(device)
     # print(input_ids)
-    output = model.generate(**input_ids, max_new_tokens=500,
+    output = model.generate(**input_ids, max_new_tokens=100,
             top_p=0.9,
             temperature=0.6,
             do_sample=True,
@@ -157,10 +157,10 @@ def inference(text_string, model, tokenizer):
             no_repeat_ngram_size=2,
             pad_token_id=tokenizer.eos_token_id)
     # print(output)
+
     pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:], skip_special_tokens=True)
     print("Gpt-2's Response: {}".format(pred))
-    print("Finished conversation with gpt")
-
+    return tokenizer.decode(output[0])
 
 if __name__ == "__main__":
     model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).to(device)
@@ -176,10 +176,22 @@ if __name__ == "__main__":
         results = train(model, optimizer)
         del model
     if (infer is True): 
-        print("Please enter text to converse with the model")
-        text_string = input()
-        text_string = "<skr>" + text_string + "<|endoftext|>"
-        inference(text_string, model, tokenizer)
+        print("Please select the role you would like to play between Supporter and Seeker: ")
+        role = input().lower()
+        return_string = ""
+        while(True):
+            print("Please enter text to converse with the model: (enter \"exit\" to end conversation)" )
+            text_string = input()
+            if(text_string == "exit"):
+                break
+            if (role == "supporter"):
+                text_string = return_string + "<sup>" + text_string + "<|endoftext|>"
+            else:
+                text_string = return_string + "<skr>" + text_string + "<|endoftext|> "
+            return_string = inference(text_string, model, tokenizer)
+            # print(return_string)
+        print("Finished conversation with gpt")
+
     gc.collect()
     torch.cuda.empty_cache()
 
