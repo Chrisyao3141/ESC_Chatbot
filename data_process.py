@@ -4,6 +4,16 @@ import pickle
 from datasets import load_dataset
 from transformers import AutoTokenizer
 from sklearn.model_selection import train_test_split
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--model_directory", type=str, default="/data/sam/Chris/gpt-2/gpt2")
+parser.add_argument("--save_directory", type=str, default="./data/gpt2")
+args = parser.parse_args()
+MODEL_DIRECTORY = args.model_directory
+SAVE_DIRECTORY = args.save_directory
+
 data_directory = "/data/sam/Chris/ESC/ESConv.json"
 # dataset = load_dataset("json", data_files=data_directory)
 dataset = load_dataset("json", data_files= data_directory)
@@ -48,13 +58,14 @@ def process(dataset):
                     line += supporter_token  +" " 
             line += turn["content"].replace("\n", " ").lower()
             last_speaker = speaker
+        line += " " + tokenizer.eos_token
         processed_data.append(line)
     return processed_data
     # break
     # for line in processed_data:
         # print(line)
 # exit()
-tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
+tokenizer = AutoTokenizer.from_pretrained(MODEL_DIRECTORY)
 train_data = process(train_split)
 test_data = process(test_split)
 sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
@@ -73,9 +84,9 @@ tokenized_test_data = tokenizer(test_data, truncation=True)
 
 
 
-with open('ESC_train.pkl', 'wb') as f:
+with open(os.path.join(SAVE_DIRECTORY, 'ESC_train.pkl'), 'wb') as f:
     pickle.dump(tokenized_train_data, f)
-with open('ESC_test.pkl', 'wb') as f:
+with open(os.path.join(SAVE_DIRECTORY, 'ESC_test.pkl'), 'wb') as f:
     pickle.dump(tokenized_test_data, f)
 
 
@@ -85,10 +96,10 @@ with open('ESC_test.pkl', 'wb') as f:
 # tokenized_data = dataset.map(lambda dataset: tokenizer(processed_data))
 # tokenized_data.save_to_disk('.')
 
-with open("./processed_train_data.txt", "w") as f:
+with open(os.path.join(SAVE_DIRECTORY,"processed_train_data.txt"), "w") as f:
     for line in train_data:
         f.write(line + "\n")
-with open("./processed_test_data.txt", "w") as f:
+with open(os.path.join(SAVE_DIRECTORY,"processed_test_data.txt"), "w") as f:
     for line in test_data:
         f.write(line + "\n")
 

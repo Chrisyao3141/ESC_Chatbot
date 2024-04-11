@@ -170,12 +170,12 @@ if __name__ == "__main__":
     model.resize_token_embeddings(len(tokenizer))
 
 
-    if (train is True): 
+    if (train): 
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
         del model
-    if (infer is True): 
+    if (infer): 
         print("Please select the role you would like to play between Supporter and Seeker: ")
         role = input().lower()
         return_string = ""
@@ -185,11 +185,11 @@ if __name__ == "__main__":
             if(text_string == "exit"):
                 break
             if (role == "supporter"):
-                text_string = return_string + "<sup>" + text_string + "<|endoftext|>"
+                text_string = return_string + "<sup> " + text_string + " <|endoftext|> "
             else:
-                text_string = return_string + "<skr>" + text_string + "<|endoftext|> "
+                text_string = return_string + "<skr> " + text_string + " <|endoftext|> "
             return_string = inference(text_string, model, tokenizer)
-            # print(return_string)
+            print("The conversation thus far, including special tokens: \n {}".format(return_string))
         print("Finished conversation with gpt")
 
     gc.collect()

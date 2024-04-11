@@ -1,9 +1,11 @@
 ## To do list
-- [] familiarise myself with huggingface and other such libraries (eh, not the worst)
+- [x] familiarise myself with huggingface and other such libraries (eh, not the worst)
 - [x] decide which model to use (gpt-2)
 - [x] find a dataset to use (ESC)
 - [] obtain gpt-2 model
 - [x] obtain ESC data (stored in /data/sam/)
-- [] process ESC data to be used in finetuning
-- [] finetune the model 
-- [] test the model 
+- [x] process ESC data to be used in finetuning
+- [x] finetune the model 
+- [x] test the model 
+- [x] write inference
+- [ ] improve model performance
