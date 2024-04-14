@@ -16,47 +16,38 @@ from transformers.utils import logging
 logging.set_verbosity_error()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--mode", type=str, default="fine tune")
 parser.add_argument("--train", type=bool, default=False)
-parser.add_argument("--eval", type=bool, default=False)
 parser.add_argument("--infer", type=bool, default=False)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--model_path", type=str, default="/data/sam/Chris/gpt-2/gpt2")
+parser.add_argument("--data_directory", type=str, default="./data/gpt2")
 parser.add_argument("--num_epochs", type=int, default=4)
 parser.add_argument("--device", type=int, default=-1)
-parser.add_argument("--output_directory", type=str, default= "/data/sam/Chris/gpt-2")
-parser.add_argument("--checkpoint_load", type=bool, default=False)
+parser.add_argument("--output_directory", type=str, default= "/data/sam/Chris/")
+parser.add_argument("--checkpoint", type=str, default="")
 args = parser.parse_args()
 
-mode =args.mode 
 batch_size = args.batch_size
 train = args.train
-eval = args.eval
 infer = args.infer
 num_epochs = args.num_epochs
 model_path = args.model_path #"/data/sam/Chris/gpt-2/gpt2"
 output_dir = args.output_directory
-checkpoint_load = args.checkpoint_load
-data_directory = "./ESC_tokenized.pkl"
-train_data_directory = "./ESC_train.pkl"
-test_data_directory = "./ESC_test.pkl"
+checkpoint = args.checkpoint
+data_directory = args.data_directory
+train_data_directory = os.path.join(data_directory, "ESC_train.pkl")
+test_data_directory = os.path.join(data_directory, "ESC_test.pkl")
 device = torch.device(f"cuda:{args.device}" if args.device >=0 else "cpu")
-
-
 
 # print(loaded_data[0].tokens)
 # print(train_data)
 # print(test_data['input_ids'])
-
-
-
 # print(len(train_dataset))
 # print(len(test_dataset))
 
-
 def train(model, optimizer):
     global_training_steps = 0
-    if(checkpoint_load == True):
+    if(checkpoint != ""):
         checkpoint = model_path.split("-")
         checkpoint = int(checkpoint[-1])
         global_training_steps+= checkpoint
@@ -103,12 +94,12 @@ def train(model, optimizer):
                 eval_loss_list.append(eval_loss)
                 print("Evaluation at Global step {} completed, Loss: {}, Perplexity {}".format(global_training_steps, eval_loss, perplexity))                
                 # save the checkpoint model if the performance has improved
-                if (len(eval_loss_list) > 1):
-                    last_index = len(eval_loss_list) -1
-                    if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 2):
-                        output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
-                        model.save_pretrained(output_directory)
-                        print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
+                # if (len(eval_loss_list) > 1):
+                #     last_index = len(eval_loss_list) -1
+                #     if (eval_loss_list[-1] < eval_loss_list[-2] and (epoch_count) > 2):
+                output_directory = os.path.join(output_dir, "checkpoint-{}".format(global_training_steps))
+                model.save_pretrained(output_directory)
+                print("Checkpoint {} saved to directory {}".format(global_training_steps, output_directory))
         #at the end of each epoch, check if there has been improvement over the last 2 epochs to determine whether further training is needed
         ## could be done better         
         epoch_loss_list.append(eval_loss_list[-1])
@@ -159,23 +150,25 @@ def inference(text_string, model, tokenizer):
     # print(output)
 
     pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:], skip_special_tokens=True)
-    print("Gpt-2's Response: {}".format(pred))
+    print("Model's Response: {}".format(pred))
     return tokenizer.decode(output[0])
 
 if __name__ == "__main__":
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    if(checkpoint != ""):
+        model_path = checkpoint
     model = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True).to(device)
-    tokenizer = AutoTokenizer.from_pretrained("/data/sam/Chris/gpt-2/gpt2")
     sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
     tokenizer.add_special_tokens(sepcial_tokens_dict)
     model.resize_token_embeddings(len(tokenizer))
 
 
-    if (train): 
+    if (train is True): 
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
         del model
-    if (infer): 
+    if (infer is True): 
         print("Please select the role you would like to play between Supporter and Seeker: ")
         role = input().lower()
         return_string = ""
@@ -185,9 +178,9 @@ if __name__ == "__main__":
             if(text_string == "exit"):
                 break
             if (role == "supporter"):
-                text_string = return_string + "<sup> " + text_string + " <|endoftext|> "
+                text_string = return_string + "<sup>" + text_string + "<|endoftext|>"
             else:
-                text_string = return_string + "<skr> " + text_string + " <|endoftext|> "
+                text_string = return_string + "<skr>" + text_string + "<|endoftext|>"
             return_string = inference(text_string, model, tokenizer)
             print("The conversation thus far, including special tokens: \n {}".format(return_string))
         print("Finished conversation with gpt")

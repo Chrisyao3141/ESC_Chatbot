@@ -49,16 +49,16 @@ def process(dataset):
             speaker = turn['speaker']
             if(not(speaker == last_speaker)):
                 if (not(last_speaker == "")):
-                    line += " " +tokenizer.eos_token + " "
+                    line +=tokenizer.eos_token
                     # if(speaker == "supporter"): ### if we want it to learn only 1 role
                     processed_data.append(line)
                 if speaker == "seeker":
-                    line += seeker_token + " "
+                    line += seeker_token
                 else: 
-                    line += supporter_token  +" " 
-            line += turn["content"].replace("\n", " ").lower()
+                    line += supporter_token
+            line += turn["content"].replace("\n", "").lower()
             last_speaker = speaker
-        line += " " + tokenizer.eos_token
+        line += tokenizer.eos_token
         processed_data.append(line)
     return processed_data
     # break
