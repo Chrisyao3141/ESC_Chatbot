@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 import gc
 import time
 from transformers.utils import logging
+import evaluate
 
 logging.set_verbosity_error()
 
@@ -152,6 +153,13 @@ def inference(text_string, model, tokenizer):
     pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:], skip_special_tokens=True)
     print("Model's Response: {}".format(pred))
     return tokenizer.decode(output[0])
+
+def metrics(results, labels):
+    bleu = evaluate.load("bleu")
+    rouge = evaluate.load("rouge")
+    bleu_results = bleu.compute(predictions=results, references=labels, max_order=2)
+    rouge_results = rouge.compute(predictions=results, references=labels, rouge_types=['rougeL'])
+    return bleu_results, rouge_results
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(model_path)
