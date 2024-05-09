@@ -17,7 +17,7 @@ import evaluate
 logging.set_verbosity_error()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--train", type=bool, default=False)
+parser.add_argument("--mode", type=int, default=0)
 parser.add_argument("--infer", type=bool, default=False)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--model_path", type=str, default="/data/sam/Chris/gpt-2/gpt2")
@@ -29,7 +29,7 @@ parser.add_argument("--checkpoint", type=str, default="")
 args = parser.parse_args()
 
 batch_size = args.batch_size
-train = args.train
+mode = args.train
 infer = args.infer
 num_epochs = args.num_epochs
 model_path = args.model_path #"/data/sam/Chris/gpt-2/gpt2"
@@ -37,6 +37,7 @@ output_dir = args.output_directory
 checkpoint = args.checkpoint
 data_directory = args.data_directory
 train_data_directory = os.path.join(data_directory, "ESC_train.pkl")
+validation_data_directory = os.path.join(data_directory, "ESC_validation.pkl")
 test_data_directory = os.path.join(data_directory, "ESC_test.pkl")
 device = torch.device(f"cuda:{args.device}" if args.device >=0 else "cpu")
 
@@ -76,6 +77,8 @@ def train(model, optimizer):
             # print(len(input_ids[0]))
             # print((attention_mask))
             outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
+            print(outputs)
+            print(outputs.keys())
             loss = outputs[0]
             train_loss += loss.mean()
             loss.backward()
@@ -112,14 +115,14 @@ def train(model, optimizer):
     print("Finished training!")
 
 
-def evaluate(model, optimizer):
+def evaluate(model):
 
-    test_data = []
-    with open(test_data_directory, 'rb') as f:
-        test_data = pickle.load(f)
+    validation_data = []
+    with open(validation_data_directory, 'rb') as f:
+        validation_data = pickle.load(f)
         print("Evaluation dataset loaded")
-    test_dataset = dataset.ESCDataset(test_data)
-    dataloader = DataLoader(test_dataset, shuffle=True, batch_size = batch_size)
+    validation_dataset = dataset.ESCDataset(validation_data)
+    dataloader = DataLoader(validation_dataset, shuffle=True, batch_size = batch_size)
 
     eval_loss = 0.0
     eval_steps = 0.0
@@ -154,6 +157,23 @@ def inference(text_string, model, tokenizer):
     print("Model's Response: {}".format(pred))
     return tokenizer.decode(output[0])
 
+def test(model, tokenizer):
+    test_data = []
+    with open(test_data_directory, 'rb') as f:
+        test_data = pickle.load(f)
+        print("test dataset loaded")
+    test_dataset = dataset.ESCDataset(test_data)
+    dataloader = DataLoader(test_dataset, shuffle=False, batch_size = batch_size)
+    test_output = []
+    for batch in dataloader:
+        input_ids = batch['input_ids'].to(device)
+        output = model.generate(**input_ids, max_new_tokens=100)
+        pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:])
+        test_output.append(pred)
+    print(tokenizer.decode(test_output[0]))
+    return test_data, test_output
+
+
 def metrics(results, labels):
     bleu = evaluate.load("bleu")
     rouge = evaluate.load("rouge")
@@ -170,13 +190,16 @@ if __name__ == "__main__":
     tokenizer.add_special_tokens(sepcial_tokens_dict)
     model.resize_token_embeddings(len(tokenizer))
 
-
-    if (train is True): 
+    # Training
+    if (mode  == 0):  
+        print("Training mode started")
         print("Model Loaded")
         optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
         del model
-    if (infer is True): 
+    # Inference
+    if (mode == 1): 
+        print("Inference mode started")
         print("Please select the role you would like to play between Supporter and Seeker: ")
         role = input().lower()
         return_string = ""
@@ -192,7 +215,12 @@ if __name__ == "__main__":
             return_string = inference(text_string, model, tokenizer)
             print("The conversation thus far, including special tokens: \n {}".format(return_string))
         print("Finished conversation with gpt")
-
+    if (mode == 2):
+        print("Test mode started")
+        test_input, test_output = test(mode, tokenizer)
+        
+        
+        
     gc.collect()
     torch.cuda.empty_cache()
 

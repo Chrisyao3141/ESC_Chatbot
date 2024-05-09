@@ -1,0 +1,1 @@
+nohup python -u main.py --train True --model_path $gpt2 --num_epochs 10 --device 6 --data_directory ./data/dialogpt | tee dialogpt_log.txt

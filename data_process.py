@@ -17,21 +17,17 @@ SAVE_DIRECTORY = args.save_directory
 data_directory = "/data/sam/Chris/ESC/ESConv.json"
 # dataset = load_dataset("json", data_files=data_directory)
 dataset = load_dataset("json", data_files= data_directory)
-# print(len(dataset))
-# print(len(dataset[0]["dialog"]))
 seeker_token = "<skr>"
 supporter_token = "<sup>"
-# for dialog in dataset:
-#     dialog = dialog["dialog"]
-#     for turn in dialog:
-#         print(turn["speaker"] + ": " + turn["content"])
-#     break
 count= 0
 train_split = []
+validation_split = []
 test_split = []
 for i in range(0, 1040):
     train_split.append(dataset['train'][i])
-for i in range(1040, 1300):
+for i in range(1040, 1170):
+    validation_split.append(dataset['train'][i])
+for i in range(1170, 1300):
     test_split.append(dataset['train'][i])
 # train_split, test_split = train_test_split(dataset["train"],test_size=.2)
 # print(train_split)
@@ -67,25 +63,21 @@ def process(dataset):
 # exit()
 tokenizer = AutoTokenizer.from_pretrained(MODEL_DIRECTORY)
 train_data = process(train_split)
+validation_data = process(validation_split)
 test_data = process(test_split)
 sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
 tokenizer.add_special_tokens(sepcial_tokens_dict)
-# print(tokenizer("<skr>Hello").tokens)
-# print(tokenizer("<skr> Hello").tokens)
-# exit()
 print("length of tokenizer is {}".format(len(tokenizer)))
 # print(processed_data.items())
-# print(train_data)
-# print(test_data)
 # print(tokenizer(processed_data)[1].tokens)
 tokenized_train_data = tokenizer(train_data, truncation=True)
+tokenized_validation_data = tokenizer(validation_data, truncation=True)
 tokenized_test_data = tokenizer(test_data, truncation=True)
-# print(len(tokenized_data[0]))
-
-
 
 with open(os.path.join(SAVE_DIRECTORY, 'ESC_train.pkl'), 'wb') as f:
     pickle.dump(tokenized_train_data, f)
+with open(os.path.join(SAVE_DIRECTORY, 'ESC_validation.pkl'), 'wb') as f:
+    pickle.dump(tokenized_validation_data, f)
 with open(os.path.join(SAVE_DIRECTORY, 'ESC_test.pkl'), 'wb') as f:
     pickle.dump(tokenized_test_data, f)
 
@@ -98,6 +90,9 @@ with open(os.path.join(SAVE_DIRECTORY, 'ESC_test.pkl'), 'wb') as f:
 
 with open(os.path.join(SAVE_DIRECTORY,"processed_train_data.txt"), "w") as f:
     for line in train_data:
+        f.write(line + "\n")
+with open(os.path.join(SAVE_DIRECTORY,"processed_validation_data.txt"), "w") as f:
+    for line in validation_data:
         f.write(line + "\n")
 with open(os.path.join(SAVE_DIRECTORY,"processed_test_data.txt"), "w") as f:
     for line in test_data:
