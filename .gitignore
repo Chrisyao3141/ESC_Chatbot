@@ -1,3 +1,5 @@
 *.pkl
 *.txt
 *.out
+*.sh
+metrics/

@@ -12,13 +12,15 @@ from torch.utils.data import DataLoader
 import gc
 import time
 from transformers.utils import logging
+from tqdm import tqdm
 import evaluate
 
+
 logging.set_verbosity_error()
+torch.set_printoptions(profile="full")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=int, default=0)
-parser.add_argument("--infer", type=bool, default=False)
 parser.add_argument("--batch_size", type=int, default=1)
 parser.add_argument("--model_path", type=str, default="/data/sam/Chris/gpt-2/gpt2")
 parser.add_argument("--data_directory", type=str, default="./data/gpt2")
@@ -29,8 +31,7 @@ parser.add_argument("--checkpoint", type=str, default="")
 args = parser.parse_args()
 
 batch_size = args.batch_size
-mode = args.train
-infer = args.infer
+mode = args.mode
 num_epochs = args.num_epochs
 model_path = args.model_path #"/data/sam/Chris/gpt-2/gpt2"
 output_dir = args.output_directory
@@ -94,7 +95,7 @@ def train(model, optimizer):
                 print("Epoch: {}, Epoch steps: {}, Global steps: {}, Time taken: {} seconds, Loss: {}".format(epoch_count, epoch_steps, global_training_steps, time_taken, train_loss))
             #perform evaluation every set amount of training steps
             if (global_training_steps % 5000 == 0):
-                eval_loss, perplexity = evaluate(model, optimizer)
+                eval_loss, perplexity = eval(model, optimizer)
                 eval_loss_list.append(eval_loss)
                 print("Evaluation at Global step {} completed, Loss: {}, Perplexity {}".format(global_training_steps, eval_loss, perplexity))                
                 # save the checkpoint model if the performance has improved
@@ -115,7 +116,7 @@ def train(model, optimizer):
     print("Finished training!")
 
 
-def evaluate(model):
+def eval(model):
 
     validation_data = []
     with open(validation_data_directory, 'rb') as f:
@@ -165,21 +166,47 @@ def test(model, tokenizer):
     test_dataset = dataset.ESCDataset(test_data)
     dataloader = DataLoader(test_dataset, shuffle=False, batch_size = batch_size)
     test_output = []
-    for batch in dataloader:
-        input_ids = batch['input_ids'].to(device)
-        output = model.generate(**input_ids, max_new_tokens=100)
-        pred = tokenizer.decode(output[0][input_ids.input_ids.shape[1]:])
-        test_output.append(pred)
-    print(tokenizer.decode(test_output[0]))
+    test_output_decode = []
+    count = 0
+    for batch in tqdm(dataloader):
+        input_ids = torch.tensor(batch['input_ids']).to(device)
+        # if (len(batch['input_ids'][0]) >= 512):
+        # print(count)
+        # decode = tokenizer.decode(input_ids[0])
+        # print(decode)
+        # count_val = 0
+        # if (count >=160):
+        #     for val in batch['input_ids'][0]:
+        #         if val >= len(tokenizer): 
+        #             print("found error")
+        #             print(count_val)
+        # print(len(batch['input_ids'][0]))
+        # print(batch['input_ids'][0])
+        #         count_val +=1
+        output = model.generate(input_ids, max_new_tokens=10, pad_token_id=tokenizer.eos_token_id)
+        output = output[0][input_ids.shape[1]:]
+        pred = tokenizer.decode(output[input_ids.shape[1]:])
+        # input = tokenizer.decode(input_ids[0])
+        # print(input)
+        # print(pred)
+        test_output.append(output)
+        test_output_decode.append(pred)
+        count +=1
+    # print(tokenizer.decode(test_output[0]))
+    # exit()
+    print(test_output_decode)
     return test_data, test_output
 
 
 def metrics(results, labels):
+    print("Beginning metric evals")
     bleu = evaluate.load("bleu")
     rouge = evaluate.load("rouge")
+    bert = evaluate.load("bertscore")
     bleu_results = bleu.compute(predictions=results, references=labels, max_order=2)
     rouge_results = rouge.compute(predictions=results, references=labels, rouge_types=['rougeL'])
-    return bleu_results, rouge_results
+    bert_results = bert.compute(predictions=results, references=labels)
+    return bleu_results, rouge_results, bert_results
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -189,6 +216,8 @@ if __name__ == "__main__":
     sepcial_tokens_dict = {'additional_special_tokens': ['<skr>', '<sup>']}
     tokenizer.add_special_tokens(sepcial_tokens_dict)
     model.resize_token_embeddings(len(tokenizer))
+    print(tokenizer.model_max_length)
+    print(len(tokenizer))
 
     # Training
     if (mode  == 0):  
@@ -197,6 +226,7 @@ if __name__ == "__main__":
         optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=1e-5)
         results = train(model, optimizer)
         del model
+    
     # Inference
     if (mode == 1): 
         print("Inference mode started")
@@ -215,9 +245,16 @@ if __name__ == "__main__":
             return_string = inference(text_string, model, tokenizer)
             print("The conversation thus far, including special tokens: \n {}".format(return_string))
         print("Finished conversation with gpt")
+    
+    # Testing
     if (mode == 2):
+        test = evaluate.load("./metrics/bleu")
         print("Test mode started")
-        test_input, test_output = test(mode, tokenizer)
+        test_input, test_output = test(model, tokenizer)
+        metric_results = metrics(test_input, test_output)
+        print(f"bleu: {metric_results[0]}")
+        print(f"Rouge-L: {metric_results[1]}")
+        print(f"bert-score: {metric_results[2]}")
         
         
         
