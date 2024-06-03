@@ -50,6 +50,7 @@ device = torch.device(f"cuda:{args.device}" if args.device >=0 else "cpu")
 
 def train(model, optimizer):
     global_training_steps = 0
+    global checkpoint
     if(checkpoint != ""):
         checkpoint = model_path.split("-")
         checkpoint = int(checkpoint[-1])
@@ -78,8 +79,8 @@ def train(model, optimizer):
             # print(len(input_ids[0]))
             # print((attention_mask))
             outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
-            print(outputs)
-            print(outputs.keys())
+            # print(outputs)
+            # print(outputs.keys())
             loss = outputs[0]
             train_loss += loss.mean()
             loss.backward()
@@ -129,7 +130,7 @@ def eval(model):
     eval_steps = 0.0
     model.eval()
     print("Evaluation starting")
-    for batch in dataloader:
+    for batch in tqdm(dataloader):
         input_ids = batch['input_ids'].to(device)
         attention_mask = batch['attention_mask'].to(device)
         outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
@@ -164,6 +165,7 @@ def test(model, tokenizer):
         test_data = pickle.load(f)
         print("test dataset loaded")
     test_dataset = dataset.ESCDataset(test_data)
+    # print(test_data)
     dataloader = DataLoader(test_dataset, shuffle=False, batch_size = batch_size)
     test_output = []
     test_output_decode = []
@@ -189,24 +191,28 @@ def test(model, tokenizer):
         # input = tokenizer.decode(input_ids[0])
         # print(input)
         # print(pred)
-        test_output.append(output)
+        test_output.append(output.tolist())
         test_output_decode.append(pred)
         count +=1
     # print(tokenizer.decode(test_output[0]))
     # exit()
     print(test_output_decode)
-    return test_data, test_output
+    return test_data["input_ids"], test_output
+
 
 
 def metrics(results, labels):
     print("Beginning metric evals")
-    bleu = evaluate.load("bleu")
-    rouge = evaluate.load("rouge")
-    bert = evaluate.load("bertscore")
+    bleu = evaluate.load("./metrics/bleu")
+    # rouge = evaluate.load("rouge")
+    # bert = evaluate.load("bertscore")
     bleu_results = bleu.compute(predictions=results, references=labels, max_order=2)
-    rouge_results = rouge.compute(predictions=results, references=labels, rouge_types=['rougeL'])
-    bert_results = bert.compute(predictions=results, references=labels)
-    return bleu_results, rouge_results, bert_results
+    # rouge_results = rouge.compute(predictions=results, references=labels, rouge_types=['rougeL'])
+    # bert_results = bert.compute(predictions=results, references=labels)
+    print(f"bleu: {bleu_results}")
+    # print(f"Rouge-L: {rouge_results}")
+    # print(f"bert-score: {bert_restults}")
+    return bleu_results#, rouge_results, bert_results
 
 if __name__ == "__main__":
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -248,13 +254,14 @@ if __name__ == "__main__":
     
     # Testing
     if (mode == 2):
-        test = evaluate.load("./metrics/bleu")
+        metric_test = evaluate.load('./metric/rouge')
+        print("Metric loaded")
+        print(metric_test.compute(["hello"], ["hello"], rouge_types=['rougeL']))
         print("Test mode started")
         test_input, test_output = test(model, tokenizer)
-        metric_results = metrics(test_input, test_output)
-        print(f"bleu: {metric_results[0]}")
-        print(f"Rouge-L: {metric_results[1]}")
-        print(f"bert-score: {metric_results[2]}")
+        metrics(test_input, test_output)
+        
+        
         
         
         
