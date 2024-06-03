@@ -80,5 +80,19 @@ def calculate_bleu(references, labels):
             bleu2_score *= score
         total_count += 1
     return bleu2_score**(1 / total_count)
+def calculate_distinct(tokens):
+    distinct_list = []
+    distinct_count = 0
+    total_count = 0
+    for sequence in tokens:
+        for token in sequence:
+            if token in distinct_list:
+                total_count+=1
+            else:
+                distinct_list.append(token)
+                distinct_count+=1
+                total_count+=1
+    return distinct_count/total_count
 print(f"Rouge-L Score: {calculate_rouge(references, labels)}")
 print(f"Bleu-2 Score: {calculate_bleu(references, labels)}") 
+print(f"Distinct Score: {calculate_distinct(references)}")

@@ -1,5 +1,5 @@
 
-def distinct(tokens, v_size):
+def EAD_distinct(tokens, v_size):
     distinct_list = []
     distinct_count = 0
     total_count = 0
@@ -16,4 +16,4 @@ def distinct(tokens, v_size):
     return distinct_count/(v_size*(1-((v_size-1)/v_size)**total_count))
 
 token_list = [["test", "this", "is", "apple"], ["I", "like ", "to", "eat", "apple"]]
-print(f"The Distinct score is: {distinct(token_list, 800)}")
+print(f"The Distinct score is: {EAD_distinct(token_list, 800)}")
